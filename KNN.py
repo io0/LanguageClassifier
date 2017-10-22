@@ -2,16 +2,15 @@
 """
 Created on Thu Oct 19 00:13:38 2017
 
-@author: Christopher
+@author: Marley
 """
 from sklearn.neighbors import KNeighborsClassifier
 from collections import Counter
 from sklearn import preprocessing
-neigh = KNeighborsClassifier(n_neighbors=7)
+neigh = KNeighborsClassifier(n_neighbors=3)
 targets = []
 def getTargets():
         with open('train_set_y.csv', 'r', encoding='utf8') as file:
-            #for line in file:
             print(file.readline())
             for line in file:
                 targets.append(int(line[-2:-1]))
@@ -38,7 +37,7 @@ with open('train_set_x.csv', 'r', encoding='utf8') as file:
                 if (len(line) > 19):
                     vec = [0 for i in range(0, dims)]
                     utterance = "".join(line.lower().split()[1:-1])
-                    utterance = (Counter(utterance[0:20]))
+                    utterance = (Counter(utterance[]))
                     for token in utterance:
                         if token in allChars:
                             vec[allChars.index(token)] = utterance[token]
@@ -56,7 +55,7 @@ with open('train_set_x.csv', 'r', encoding='utf8') as file:
         line = file.readline()
         vec = [0 for i in range(0, dims)]
         utterance = "".join(line.lower().split()[1:-1])
-        utterance = (Counter(utterance[0:20]))
+        utterance = (Counter(utterance))
         for token in utterance:
             if token in allChars:
                 vec[allChars.index(token)] = utterance[token]
