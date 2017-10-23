@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from random import shuffle
 import itertools
 import re
+import math
 
 
 class NaiveBayes():
@@ -34,7 +35,7 @@ class NaiveBayes():
         
         self.collectChars()
         self.countChars()
-
+        
     def collectChars(self):
         i = 0
         for utterance in self.lines:
@@ -99,14 +100,32 @@ class NaiveBayes():
                 #tfidf = tf*log(self.targetCount[i]/(self.charSetCount[i][token] + 1))
                 #probXInY[i].append(log(tfidf/(sum(self.sumTFIDF) + self.totalUniqueChars)))
                 probXInY[i].append(utterance[token] * log((self.charCount[i][token] + 1)/(self.totalCharCounts[i] + self.totalUniqueChars)))
-                #probXInY[i].append(utterance[token] * log((self.charCount[i][token]/self.totalCharCounts[i] + 1)/(1 + self.totalUniqueChars)))
+                #probXInY[i].append(utterance[token] * log((self.charCount[i][token]/self.totalCharCounts[i] + 1)/(1 + self.totalUniqueChars)))    # normalized word count
         probY = [sum(probabilities) for probabilities in probXInY]
         #totalChars = sum(self.totalCharCounts)
         for i in range(0, 5):
             probY[i] = probY[i] + log(self.targetCount[i] / sum(self.targetCount))
             #probY[i] = probY[i] + log(self.totalCharCounts[i] / totalChars)
         return np.argmax(probY)
-
+    def showDistribution(self, grams, name, arranged = True):
+        dist = sum(self.charCount, Counter())
+        if arranged:
+            plt.bar(range(len(dist)), sorted(dist.values(), reverse=True))
+        else:
+            plt.bar(range(len(dist)), dist.values())
+        plt.xlabel(grams)
+        plt.yscale('log')
+        plt.ylabel('Occurrences')
+        plt.savefig(name)
+        
+def preprocess(lines):
+    rt_lines = []
+    for line in lines:
+        line = re.sub(r'\W+', '', line)
+        line = re.sub(r'http\S*', '' , line , re.UNICODE)
+        line = re.sub(r'[0-9]', '' , line , re.UNICODE)
+        rt_lines.append(line)
+    return rt_lines
 def findAccuracy(predictions, targets):
     numRight = [0,0,0,0,0]
     numWrong = [0,0,0,0,0]
@@ -117,8 +136,40 @@ def findAccuracy(predictions, targets):
             numRight[targets[i]] += 1
         else:
             numWrong[targets[i]] += 1
-    print(nt/len(predictions))
+    accuracy = nt/len(predictions)
+    print(accuracy)
     print([numRight[i]/(numWrong[i] + numRight[i]) for i in range(0,5)])
+    return accuracy, [numRight[i]/(numWrong[i] + numRight[i]) for i in range(0,5)]
+
+def printAccuracySummary(summary_accuracies):
+    s = [[],[],[],[],[]]
+    for acc in summary_accuracies:
+        for i in range(0,5):
+            s[i].append(acc[i])
+    for h in s:
+        print(np.mean(h))
+        print(np.std(h))
+
+def predictTest(training_lines, targets):
+    a = NaiveBayes(training_lines, targets)
+    lines = []
+    with open('test_set_x.csv', 'r', encoding='utf8') as file:
+        print(file.readline())
+        for line in file:
+            line = "".join(line.split()[1:-1])
+            lines.append(line)
+    lines = preprocess(lines)
+    predictions = []
+    for line in lines:
+        predictions.append(a.predict(line))
+    with open('attempt.csv', 'w', encoding='utf8') as f2:
+        print("Id,Category", file=f2)
+        i = 0
+        for n in predictions:
+            s = str(i) + ',' + str(n)
+            print(s, file=f2)
+            i = i + 1
+    
     
 if __name__ == "__main__":
     targets = []
@@ -133,19 +184,29 @@ if __name__ == "__main__":
     with open('train_set_x.csv', 'r', encoding='utf8') as file:
             print(file.readline())
             for line in file:
-                line = "".join(line.split()[1:-1])            
-                #line = re.sub(r'\W+', '', line)
+                line = "".join(line.split()[1:-1])
                 lines.append(line)
+    lines = preprocess(lines)
+    
     partition = int(.1*num_samples)
-    for i in range (0,10):                                                      # 10-fold cross-validation
+    summary_accuracies = []
+    summary_accuracies_total = []
+    for i in range (0,0):                                                      # 10-fold cross-validation
         a = NaiveBayes(lines[0:9*partition], targets, ngrams = 1)
         predictions = []
         for line in lines[9*partition:]:
             prediction = a.predict(line[0:20])
             predictions.append(prediction)
-        findAccuracy(predictions, targets[9*partition:])
-        lines = lines[partition:] + lines[:partition]                           # Rotate list to find next
+        a.showDistribution('Unigrams', 'unigrams.png')
+        nt, nr = findAccuracy(predictions, targets[9*partition:])
+        summary_accuracies.append(nr)
+        summary_accuracies_total.append(nt)
+        lines = lines[partition:] + lines[:partition]                           # Rotate list to obtain different partitioning
         targets = targets[partition:] + targets[:partition]
+    predictTest(lines, targets)                                                 # Print predictiosn to file for test
+    printAccuracySummary(summary_accuracies)
+    print(np.mean(summary_accuracies_total))
+    print(np.std(summary_accuracies_total))
 '''
 with open('second_attempt.csv', 'w', encoding='utf8') as f2:
     print("Id,Category", file=f2)
